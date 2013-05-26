@@ -1,16 +1,18 @@
 module Main where
 
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Lazy.Char8 as C
 import Data.List.Split (chunksOf)
 import Data.Binary.Get
 import Data.Word
 import Data.Bits
 import Data.Char
-import Data.Vector.Unboxed ((!))
-import qualified Data.Vector.Unboxed as U
 import Numeric
 import Data.Binary
+import qualified Data.UUID as U
+import Data.UUID.V4 (nextRandom)
+import System.Random
+
+type RFC1751Alphabet = [String]
 
 bool2int :: Bool -> Int
 bool2int True = 1
@@ -21,7 +23,7 @@ bin2dec = foldr (\c s -> s * 2 + c) 0 . reverse . map c2i
   where 
     c2i c = if c == '0' then 0 else 1
 
-encodeChecksum :: Int -> Int 
+encodeChecksum :: Int -> Int
 encodeChecksum w64 = (foldl checksum 0 evens) .&. 3
   where 
     evens = [x | x <- [0,2..62]]
@@ -37,7 +39,7 @@ splitIntoWord64 = listOfWord64
          then return []
          else do v <- getWord64be
                  rest <- listOfWord64
-                 return (v : rest)  
+                 return (v : rest)
 
 -- | Encodes a 64 bit chunk
 encodeWord64 :: Word64 -> [String]
@@ -46,13 +48,27 @@ encodeWord64 w64 = map (rfc1751Alphabet !!) list
     keys = map bin2dec $ chunksOf 11 $ showIntAtBase 2 intToDigit (fromIntegral w64) ""
     list = take 5 keys ++ [((keys !! 5) `shiftL` 2) + encodeChecksum (fromIntegral w64)]
 
+-- | Encodes a key of length 64*n
+encodeKey :: BL.ByteString -> RFC1751Alphabet
+encodeKey bs = concatMap encodeWord64 $ runGet splitIntoWord64 bs
+
+-- | Encodes a UUID
+encodeUUID :: U.UUID -> RFC1751Alphabet
+encodeUUID uuid = encodeKey $ U.toByteString uuid
+
+-- | Encodes a random UUID
+encodeRandomUUID :: IO RFC1751Alphabet
+encodeRandomUUID = do 
+  random <- nextRandom
+  return $ encodeUUID random
+
 main :: IO ()
-main = do
-  let words = runGet splitIntoWord64 $ encode (0xDEADBEEFDEADBEEF :: Int)
-  print $ map encodeWord64 words
+main = do 
+  words <- encodeRandomUUID 
+  print $ words
   return ()
 
-rfc1751Alphabet :: [String] 
+rfc1751Alphabet :: RFC1751Alphabet
 rfc1751Alphabet = words $ unlines
   [ "A    ABE  ACE  ACT  AD   ADA  ADD  AGO  AID  AIM  AIR  ALL  ALP  AM   AMY  AN  "
   , "ANA  AND  ANN  ANT  ANY  APE  APS  APT  ARC  ARE  ARK  ARM  ART  AS   ASH  ASK "

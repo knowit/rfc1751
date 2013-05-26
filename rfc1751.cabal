@@ -1,0 +1,11 @@
+Name:                rfc1751
+Version:             0.0.0.1
+Description:         RFC 1751 - A Convention for Human-Readable 128-bit Keys
+License:             GPL
+License-file:        LICENSE
+Author:              Anders Aarsæther
+Maintainer:          aaa@knowit.no
+Build-Type:          Simple
+Cabal-Version:       >=1.2
+Executable rfc1751
+  Main-is:           rfc1751.hs
